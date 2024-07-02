@@ -40,6 +40,7 @@ if (username === undefined || password === undefined || host === undefined) {
 const enableSsl = config.redis.ssl;
 const prefix = process.env.NODE_ENV?.toLowerCase() || "local";
 const cookieSecret = config.cookieSecret;
+const configQueues = config.bullmq?.queues ?? [];
 const cookieMaxAge = config.cookieMaxAge;
 const defaultUsers: Array<User> = [
   { username: "admin", password: "secret", role: "admin" },
@@ -57,13 +58,13 @@ const redisConnString = formatConnectionString(
 
 export const metricsCollector = new PrometheusMetricsCollector("monitor", {
   bullmqOpts: {
-    prefix: prefix,
+    prefix,
   },
   client: new Redis(redisConnString, {
     maxRetriesPerRequest: null,
     db: config.redis.database,
   }),
-  queues: [],
+  queues: configQueues,
 });
 
 handleFutureShutdown(metricsCollector);
@@ -71,20 +72,12 @@ handleFutureShutdown(metricsCollector);
 const dashboardRouter = express.Router();
 app.use("/bullmq", dashboardRouter);
 
-metricsCollector
-  .discoverAllQueues()
-  .then((queues) => {
-    logger.info(`Discovered ${queues.length} queues`);
-    ConfigureDashboardRoutes(dashboardRouter, {
-      basePath: "/bullmq",
-      queues: metricsCollector.monitoredQueues.map((q) => q.queue),
-      cookieSecret: cookieSecret,
-      cookieMaxAge: cookieMaxAge,
-      users: users,
-    });
-    ConfigureMetricsRoute(app, metricsCollector);
-  })
-  .catch((err) => {
-    console.error(err);
-    process.exit(125);
-  });
+logger.info(`Discovered ${metricsCollector.monitoredQueues.length} queues`);
+ConfigureDashboardRoutes(dashboardRouter, {
+  basePath: "/bullmq",
+  queues: metricsCollector.monitoredQueues.map((q) => q.queue),
+  cookieSecret: cookieSecret,
+  cookieMaxAge: cookieMaxAge,
+  users: users,
+});
+ConfigureMetricsRoute(app, metricsCollector);

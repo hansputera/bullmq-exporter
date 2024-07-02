@@ -2,7 +2,6 @@ import { Router } from "express";
 
 export interface IFMetricsCollector {
   collectSerialized: () => Promise<any>;
-  discoverAllQueues: () => Promise<any>;
 }
 
 export function ConfigureRoutes(
@@ -19,10 +18,5 @@ export function ConfigureRoutes(
     );
     res.header("Content-Type-Options", "nosniff");
     res.status(200).send(metrics);
-  });
-
-  app.get(`/discoverQueues`, async (req, res) => {
-    const queues = await metricsCollector.discoverAllQueues();
-    res.status(200).json(queues);
   });
 }

@@ -4,12 +4,18 @@
     "username": "default",
     "password": "redispw",
     "ssl": false,
-    "database": 0
+    "database": 2
   },
   "bullmq": {
-    "prefixes": [{
-      "name": "bull",
-      "prefix": "bull"
+    "queues": [{
+      "name": "common",
+      "prefix": "cmn_"
+    }, {
+      "name": "download",
+      "prefix": "dl_"
+    }, {
+      "name": "archiver",
+      "prefix": "arch_"
     }]
   },
   "cookieSecret": "myCookieSecret123!",

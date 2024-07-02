@@ -8,6 +8,12 @@ export interface Config {
     ssl: boolean;
     database?: number;
   };
+  bullmq?: {
+    queues: Array<{
+      name: string;
+      prefix: string;
+    }>;
+  };
   cookieSecret: string;
   cookieMaxAge: string;
   users?: Array<any>;

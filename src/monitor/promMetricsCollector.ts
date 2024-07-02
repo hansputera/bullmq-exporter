@@ -7,7 +7,10 @@ import { PrometheusMonitoredQueue } from "./promQueue";
 export interface MetricsCollectorOptions {
   bullmqOpts: bullmq.QueueBaseOptions;
   client: Redis;
-  queues?: Array<string>;
+  queues: Array<{
+    name: string;
+    prefix: string;
+  }>;
 }
 
 export interface PrometheusMetrics {
@@ -34,23 +37,25 @@ export class PrometheusMetricsCollector {
     this.registry = new prom_client.Registry();
     this.name = name;
     this.bullmqOpts = opts.bullmqOpts ?? {
-      connection: { maxRetriesPerRequest: null },
+      connection: {
+        maxRetriesPerRequest: null,
+        db: opts.client.options.db,
+      },
     };
     this.defaultRedisClient = opts.client;
     this.registerMetrics(this.registry);
 
-    if (opts.queues) {
-      this.registerQueues(opts.queues);
-    } else {
-      this.discoverAllQueues()
-        .then((queues) => {
-          logger.info(`Discovered ${queues.length} queues`);
-        })
-        .catch((err) => {
-          logger.error(`Failed to discover queues: ${err}`);
-          process.exit(125);
-        });
-    }
+    this.registerQueues(opts.queues);
+    // } else {
+    //   this.discoverAllQueues()
+    //     .then((queues) => {
+    //       logger.info(`Discovered ${queues.length} queues`);
+    //     })
+    //     .catch((err) => {
+    //       logger.error(`Failed to discover queues: ${err}`);
+    //       process.exit(125);
+    //     });
+    // }
   }
 
   registerMetrics(reg: prom_client.Registry, prefix = "") {
@@ -97,36 +102,42 @@ export class PrometheusMetricsCollector {
     Object.values(this.metrics).forEach((metric) => reg.registerMetric(metric));
   }
 
-  async discoverAllQueues() {
-    const keyPattern = new RegExp(
-      `^${this.bullmqOpts.prefix}:([^:]+):(id|failed|active|waiting|stalled-check)$`
-    );
-    const keyStream = await this.defaultRedisClient.scanStream({
-      match: `${this.bullmqOpts.prefix}:*:*`,
-    });
+  // async discoverAllQueues() {
+  //   const keyPattern = new RegExp(
+  //     `^${this.bullmqOpts.prefix}:([^:]+):(id|failed|active|waiting|stalled-check)$`
+  //   );
+  //   const keyStream = await this.defaultRedisClient.scanStream({
+  //     match: `${this.bullmqOpts.prefix}:*:*`,
+  //   });
 
-    const queues = new Set<string>();
-    for await (const keyChunk of keyStream) {
-      for (const key of keyChunk) {
-        const match = keyPattern.exec(key);
-        if (match && match[1]) {
-          queues.add(match[1]);
-        }
-      }
-    }
-    this.registerQueues(Array.from(queues));
-    return Array.from(queues);
-  }
+  //   const queues = new Set<string>();
+  //   for await (const keyChunk of keyStream) {
+  //     for (const key of keyChunk) {
+  //       const match = keyPattern.exec(key);
+  //       if (match && match[1]) {
+  //         queues.add(match[1]);
+  //       }
+  //     }
+  //   }
+  //   this.registerQueues(Array.from(queues));
+  //   return Array.from(queues);
+  // }
 
-  registerQueues(queues: Array<string>) {
+  registerQueues(
+    queues: Array<{
+      name: string;
+      prefix: string;
+    }>
+  ) {
     this.monitoredQueues = queues.map(
-      (queueName) =>
-        new PrometheusMonitoredQueue(queueName, this.metrics!, {
+      (queue) =>
+        new PrometheusMonitoredQueue(queue.name, this.metrics!, {
           bullmqOpts: {
             ...this.bullmqOpts,
             connection: this.defaultRedisClient,
+            prefix: queue.prefix,
           },
-          name: queueName,
+          name: queue.name,
         })
     );
   }
