@@ -13,7 +13,7 @@ import logger, { winstonLoggerOpts } from "./logger";
 import { PrometheusMetricsCollector } from "./monitor/promMetricsCollector";
 import { formatConnectionString, handleFutureShutdown } from "./utils";
 
-export const app = express();
+export const app: express.Application = express();
 app.disable("x-powered-by");
 
 const expressWinstonOpts: ExpressWinstonOpts = {
